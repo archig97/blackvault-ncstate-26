@@ -67,9 +67,9 @@ class ValkeyStore:
         pipe.incrbyfloat(vol_key, amount)
         pipe.pfadd(uniq_key, tx["receiver"])
 
-        pipe.expire(cnt_key, ROLLING_TTL)
-        pipe.expire(vol_key, ROLLING_TTL)
-        pipe.expire(uniq_key, ROLLING_TTL)
+        pipe.expire(cnt_key, self.ROLLING_TTL)
+        pipe.expire(vol_key, self.ROLLING_TTL)
+        pipe.expire(uniq_key, self.ROLLING_TTL)
 
         pipe.sadd(f"rcpt:{sender}", tx["receiver"])
 
@@ -87,19 +87,19 @@ class ValkeyStore:
             "last_seen_ts": int(time.time())
         })
 
-        self.r.zadd(RISK_RANK, {sender: risk})
+        self.r.zadd(self.RISK_RANK, {sender: risk})
 
     def get_recent(self, limit=100):
-        return self.r.xrevrange(TX_STREAM, count=limit)
+        return self.r.xrevrange(self.TX_STREAM, count=limit)
     
     def get_neighbors(self, node: str):
         return list(self.r.smembers(f"nbrs:{node}"))
     
     def get_top_risk(self, limit=10):
-        return self.r.zrevrange(RISK_RANK, 0, limit-1, withscores=True)
+        return self.r.zrevrange(self.RISK_RANK, 0, limit-1, withscores=True)
     
     def seed_bad_node(self, node="acct_999"):
-        self.r.sadd(BAD_NODES, node)
+        self.r.sadd(self.BAD_NODES, node)
 
     
 
