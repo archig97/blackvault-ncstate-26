@@ -87,6 +87,15 @@ def main():
     print_section("ALL TESTS PASSED")
     print("Valkey Data Engine is functioning correctly.")
 
+    print_section("Testing Feature Extraction")
+
+    features = store.extract_features(tx)
+
+    assert "velocity_z" in features
+    assert "previous_risk" in features
+
+    print("Feature extraction working")
+
 
 if __name__ == "__main__":
     main()
