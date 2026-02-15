@@ -58,11 +58,51 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup() -> None:
-    # Keep startup resilient when Valkey is not yet ready.
+    """
+    Initialize blacklist with multiple bad nodes.
+    This makes risk propagation visible across the network.
+    """
     try:
-        store.seed_bad_node("acct_999")
+        # Seed multiple sanctioned accounts as bad nodes
+        bad_nodes = [
+            "acct_sanctioned_0",
+            "acct_sanctioned_1",
+            "acct_sanctioned_2",
+        ]
+        
+        for node in bad_nodes:
+            store.seed_bad_node(node)
+            print(f"[startup] seeded bad node: {node}")
+        
+        # Initialize account metadata for ecosystem
+        account_metadata = [
+            # Fraudsters
+            ("acct_fraud_0", "fraudulent", ["organized", "ring_member"]),
+            ("acct_fraud_1", "fraudulent", ["organized", "ring_member"]),
+            ("acct_fraud_2", "fraudulent", ["opportunistic"]),
+            # Laundering hubs (compromised accounts)
+            ("acct_launder_0", "compromised", ["high_volume", "structural_risk"]),
+            ("acct_launder_1", "compromised", ["high_volume", "structural_risk"]),
+            ("acct_launder_2", "compromised", ["dormant", "reactivated"]),
+            ("acct_launder_3", "compromised", ["behavioral_shift"]),
+            ("acct_launder_4", "compromised", ["behavioral_shift"]),
+            # Merchants (legitimate, high-freq)
+            ("acct_merchant_0", "merchant", ["verified", "trusted"]),
+            ("acct_merchant_1", "merchant", ["verified", "trusted"]),
+            # Sanctioned accounts
+            ("acct_sanctioned_0", "sanctioned", ["known_bad", "honeypot"]),
+            ("acct_sanctioned_1", "sanctioned", ["known_bad", "honeypot"]),
+            ("acct_sanctioned_2", "sanctioned", ["known_bad", "honeypot"]),
+        ]
+        
+        for account_id, account_type, tags in account_metadata:
+            store.set_account_metadata(account_id, account_type, tags)
+            print(f"[startup] initialized account metadata: {account_id} -> {account_type}")
+        
+        print(f"[startup] initialized {len(bad_nodes)} bad nodes and {len(account_metadata)} account metadata entries")
+        
     except Exception as exc:
-        print(f"[startup] could not seed bad node: {exc}")
+        print(f"[startup] initialization error: {exc}")
 
 
 def build_ai_summary(sender: str, decision: dict) -> str:

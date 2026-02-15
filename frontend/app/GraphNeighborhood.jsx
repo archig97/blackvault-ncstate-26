@@ -7,11 +7,21 @@ import "reactflow/dist/style.css";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 
 function nodeStyle(risk, isBad) {
-  if (isBad) return { border: "2px solid #d32f2f", background: "#ffebee" };
-  if (risk >= 80) return { border: "2px solid #f57c00", background: "#fff3e0" };
-  if (risk >= 50) return { border: "2px solid #fbc02d", background: "#fffde7" };
-  if (risk > 0) return { border: "2px solid #388e3c", background: "#e8f5e9" };
-  return { border: "1px solid #9e9e9e", background: "#fafafa" };
+  if (isBad) {
+    return {
+      border: "4px solid #ff2e2e",
+      background: "#ff2e2e",
+      color: "#fff",
+      fontWeight: "bold",
+    };
+  }
+  const r = Math.min(255, Math.floor(risk * 2.55));
+  const g = Math.max(0, 255 - Math.floor(risk * 2.55));
+  return {
+    background: `rgb(${r}, ${g}, 0)`,
+    border: "2px solid #999",
+    color: "#000",
+  };
 }
 
 function layoutCircle(centerId, nodes) {
@@ -43,7 +53,7 @@ function toReactFlowNodes(centerId, rawNodes) {
 
     return {
       id,
-      data: { label: `${id}\nRisk: ${risk}${isBad ? "\nKNOWN BAD" : ""}` },
+      data: { label: `${id.replace("acct_", "")}\nRisk: ${risk}` },
       style: nodeStyle(risk, isBad),
       position: { x: 0, y: 0 },
     };
@@ -52,7 +62,7 @@ function toReactFlowNodes(centerId, rawNodes) {
   if (!normalized.some((n) => n.id === centerId)) {
     normalized.push({
       id: centerId,
-      data: { label: `${centerId}\nRisk: 0` },
+      data: { label: `${centerId.replace("acct_", "")}\nRisk: 0` },
       style: nodeStyle(0, false),
       position: { x: 0, y: 0 },
     });
@@ -74,7 +84,7 @@ function toReactFlowEdges(rawEdges) {
 }
 
 export default function GraphNeighborhood({ graphData }) {
-  const [nodeId, setNodeId] = useState("acct_attack");
+  const [nodeId, setNodeId] = useState("");
   const [depth, setDepth] = useState(2);
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);

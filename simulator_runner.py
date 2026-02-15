@@ -1,22 +1,23 @@
 import time
 import requests
-from simulator_core import SimulatorCore, make_accounts
+from simulator_core import create_attack_scenario, generate_attack_tx
 
-accounts = make_accounts(200)
-sim = SimulatorCore(accounts)
+# Create 191-account ecosystem with realistic attack
+scenario = create_attack_scenario(
+    normal_count=150,
+    merchant_count=30,
+    fraudster_count=3,
+    laundering_hub_count=5,
+    sanctioned_count=3
+)
 
-# Mixed traffic profile:
-# - mostly normal traffic (many accounts)
-# - short periodic attack bursts (acct_attack)
-sim.start("normal")
 t0 = time.time()
 
 while True:
     elapsed = time.time() - t0
-    cycle_s = int(elapsed) % 30
-    sim.set_mode("attack" if 20 <= cycle_s < 30 else "normal")
-
-    tx = sim.next_tx()
+    
+    # Generate next transaction from 4-phase attack
+    tx = generate_attack_tx(scenario)
 
     try:
         resp = requests.post(
@@ -28,11 +29,11 @@ while True:
                 "receiver": tx["receiver"],
                 "amount": tx["amount"],
             },
-            timeout=3,
+            timeout=10,
         )
         if resp.status_code >= 400:
             print(f"POST /tx failed: {resp.status_code} {resp.text}")
     except Exception as exc:
         print(f"POST /tx error: {exc}")
 
-    time.sleep(sim._sleep_interval())
+    time.sleep(0.5)  # 500ms between transactions (was 100ms)
