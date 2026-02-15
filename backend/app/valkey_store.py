@@ -75,40 +75,63 @@ class ValkeyStore:
 
         pipe.execute()
 
-    def extract_features(self, tx: dict):
+    def extract_features(self, tx: dict) -> dict:
+        """
+        Extracts multi-horizon feature dictionary expected by risk_engine.score().
+        This function reads from Valkey only and performs light transformations.
+        """
+
         sender = tx["sender"]
         ts = tx["ts"]
+        amount = float(tx["amount"])
+
         bucket = self.minute_bucket(ts)
 
+        # --- Rolling Window Keys ---
         cnt_key = self.get_count_key(sender, bucket)
         vol_key = self.get_volume_key(sender, bucket)
         uniq_key = self.get_unique_recipient_key(sender, bucket)
 
+        # --- Fetch Rolling Metrics Safely ---
         burst_count = int(self.r.get(cnt_key) or 0)
-        volume = float(self.r.get(vol_key) or 0)
+        volume = float(self.r.get(vol_key) or 0.0)
         unique_recipients = int(self.r.pfcount(uniq_key) or 0)
 
-        previous_risk = float(
-            self.r.hget(self.get_node_key(sender), "risk") or 0
+        # --- Previous Risk ---
+        node_key = self.get_node_key(sender)
+        previous_risk = float(self.r.hget(node_key, "risk") or 0.0)
+
+        # --- Placeholder Statistical Normalization ---
+        # (Replace later with true baseline + z-score computation)
+        velocity_z = burst_count / 10.0
+        dispersion_z = unique_recipients / 5.0
+        drain_ratio = volume / 10000.0
+
+        # --- Suspicion Composite ---
+        suspicion = (
+            burst_count * 1.0 +
+            unique_recipients * 0.5 +
+            volume / 1000.0
         )
 
-        # TEMP placeholders until baseline logic added
+        # --- Final Feature Dictionary ---
         features = {
-            "velocity_z": burst_count / 10.0,
-            "dispersion_z": unique_recipients / 5.0,
-            "entropy_shift": 0.0,
-            "drain_ratio": volume / 10000.0,
-            "long_term_drift": 0.0,
-            "micro_pattern_score": 0.0,
-            "structural_risk": 0.0,
-            "risk_density": 0.0,
-            "maturity_penalty": 0.0,
-            "behavioral_drift_score": 0.0,
-            "suspicion": burst_count + volume / 1000.0,
+            "velocity_z": velocity_z,
+            "dispersion_z": dispersion_z,
+            "entropy_shift": 0.0,              # placeholder
+            "drain_ratio": drain_ratio,
+            "long_term_drift": 0.0,            # placeholder
+            "micro_pattern_score": 0.0,        # placeholder
+            "structural_risk": 0.0,            # placeholder
+            "risk_density": 0.0,               # placeholder
+            "maturity_penalty": 0.0,           # placeholder
+            "behavioral_drift_score": 0.0,     # placeholder
+            "suspicion": suspicion,
             "previous_risk": previous_risk
         }
 
         return features
+
 
     def store_decision(self, tx_id: str, sender: str, risk: int, hops: int):
         self.r.hset(f"tx:{tx_id}", mapping={

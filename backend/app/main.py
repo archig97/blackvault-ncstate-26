@@ -1,10 +1,14 @@
 from fastapi import FastAPI
-from valkey_store import ValkeyStore
+from .valkey_store import ValkeyStore
 from pydantic import BaseModel
 import time
 
 # Import risk engine
-from risk_engine import score  # adjust if module structured differently
+from .risk_engine import RiskEngine
+
+print("MAIN.PY LOADED")
+
+risk_engine = RiskEngine()
 
 app = FastAPI()
 store = ValkeyStore()
@@ -22,34 +26,54 @@ def ingest_transaction(tx: Transaction):
 
     tx_dict = tx.dict()
 
-    # 1️⃣ Store raw data
+    # 1️⃣ Store raw transaction + update state
     store.add_transaction_to_stream(tx_dict)
     store.store_transaction_hash(tx_dict)
     store.update_graph(tx.sender, tx.receiver)
     store.update_behavior(tx_dict)
 
-    # 2️⃣ Extract features (NEW STEP)
+    # 2️⃣ Extract multi-horizon features
     features = store.extract_features(tx_dict)
 
-    # 3️⃣ Call risk engine (NEW STEP)
-    decision = score(features)
+    # 3️⃣ Call risk engine
+    decision = risk_engine.score(features)
 
-    # decision expected format:
+    # decision must contain:
     # {
-    #   "risk": 71.3,
-    #   "flagged": True,
+    #   "risk": float,
+    #   "flagged": bool,
     #   "reasons": [...]
     # }
 
-    # 4️⃣ Store decision
+    # 4️⃣ Persist risk decision
     store.store_decision(
         tx.id,
         tx.sender,
         decision["risk"],
-        hops=0  # optional if graph exposure not yet integrated
+        hops=0  # adjust later if graph exposure integrated
     )
 
     # 5️⃣ Return decision to frontend
     return decision
+
+@app.get("/tx/recent")
+def get_recent(limit: int = 100):
+    return store.get_recent(limit)
+
+
+@app.get("/risk/top")
+def get_top_risk(limit: int = 10):
+    return store.get_top_risk(limit)
+
+
+@app.get("/graph/{node}")
+def get_neighbors(node: str):
+    return store.get_neighbors(node)
+
+@app.get("/node/{node}")
+def get_node(node: str):
+    return store.r.hgetall(store.get_node_key(node))
+
+
 
 
