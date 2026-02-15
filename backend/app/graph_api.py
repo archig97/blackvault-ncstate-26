@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends
 from redis import Redis
+from .valkey_store import ValkeyStore
+from .graph_features import compute_graph_features
 
 from .valkey import get_client
 from .graph_tools import build_neighborhood, compute_hops_to_bad
@@ -47,3 +49,8 @@ def hops(node: str, store: ValkeyStore = Depends(store_dep)):
     get_neighbors = lambda n: store.r.smembers(f"nbrs:{n}")
     h = compute_hops_to_bad(node, get_neighbors, bad_nodes, max_depth=3)
     return {"node": node, "hops_to_bad": h}
+
+@router.get("/features")
+def features(node: str, k: int = 2, r: Redis = Depends(valkey_dep)):
+    store = ValkeyStore(r)
+    return compute_graph_features(node, k, store)

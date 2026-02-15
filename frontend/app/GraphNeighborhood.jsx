@@ -43,6 +43,10 @@ export default function GraphNeighborhood() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
+  // ✅ NEW: metrics state
+  const [metrics, setMetrics] = useState(null);
+  const [metricsErr, setMetricsErr] = useState("");
+
   const load = useCallback(async () => {
     setLoading(true);
     setErr("");
@@ -82,9 +86,29 @@ export default function GraphNeighborhood() {
     }
   }, [nodeId, depth]);
 
+  // ✅ NEW: fetch P4 graph features
+  const loadMetrics = useCallback(async () => {
+    setMetricsErr("");
+    try {
+      const res = await fetch(
+        `${API_BASE}/graph/features?node=${encodeURIComponent(nodeId)}&k=2`
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setMetrics(data);
+    } catch (e) {
+      setMetrics(null);
+      setMetricsErr(String(e));
+    }
+  }, [nodeId]);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadMetrics();
+  }, [load, loadMetrics]);
+
+  // Optional helper for safe number formatting
+  const fmt = (v) => (typeof v === "number" ? v.toFixed(3) : v ?? "-");
 
   return (
     <div style={{ height: "92vh", width: "100%" }}>
@@ -107,7 +131,7 @@ export default function GraphNeighborhood() {
           </select>
         </div>
 
-        <button onClick={load} disabled={loading} style={{ padding: "8px 12px" }}>
+        <button onClick={() => { load(); loadMetrics(); }} disabled={loading} style={{ padding: "8px 12px" }}>
           {loading ? "Loading…" : "Refresh"}
         </button>
 
@@ -115,6 +139,32 @@ export default function GraphNeighborhood() {
 
         <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.7 }}>
           Backend: {API_BASE}
+        </div>
+      </div>
+
+      {/* ✅ NEW: P4 metrics panel */}
+      <div style={{ padding: "0 12px 12px 12px" }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "stretch", flexWrap: "wrap" }}>
+          <div style={{ padding: 10, border: "1px solid #ddd", borderRadius: 10, minWidth: 320 }}>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Graph-derived metrics (P4)</div>
+
+            {metricsErr ? (
+              <div style={{ color: "crimson", fontSize: 12 }}>metrics error: {metricsErr}</div>
+            ) : metrics ? (
+              <div style={{ fontSize: 13, display: "grid", gridTemplateColumns: "160px 1fr", rowGap: 6 }}>
+                <div><b>hops_to_bad</b></div><div>{metrics.hops_to_bad}</div>
+                <div><b>risk_density</b></div><div>{fmt(metrics.risk_density)}</div>
+                <div><b>max_neighbor_risk</b></div><div>{fmt(metrics.max_neighbor_risk)}</div>
+                <div><b>edge_churn_1h</b></div><div>{fmt(metrics.edge_churn_1h)}</div>
+                <div><b>structural_risk</b></div><div>{fmt(metrics.structural_risk)}</div>
+                <div><b>structural_instability</b></div><div>{fmt(metrics.structural_instability)}</div>
+                <div><b>k_hop_nodes_count</b></div><div>{metrics.k_hop_nodes_count}</div>
+                <div><b>out_neighbors_count</b></div><div>{metrics.out_neighbors_count}</div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, opacity: 0.7 }}>No metrics yet (try Refresh).</div>
+            )}
+          </div>
         </div>
       </div>
 
