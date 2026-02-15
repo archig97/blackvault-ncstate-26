@@ -5,7 +5,7 @@ from .graph_features import compute_graph_features
 
 from .valkey import get_client
 from .graph_tools import build_neighborhood, compute_hops_to_bad
-from .valkey_store import ValkeyStore, BAD_NODES_SET, k_node_hash
+
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 
@@ -24,12 +24,12 @@ def neighborhood(node: str, depth: int = 2, store: ValkeyStore = Depends(store_d
     get_neighbors = lambda n: store.r.smembers(f"nbrs:{n}")
     subgraph = build_neighborhood(node, get_neighbors, depth=depth)
 
-    bad_nodes = set(store.r.smembers(BAD_NODES_SET))
+    bad_nodes = set(store.r.smembers(store.BAD_NODES))
 
     # Fetch risks in one pipeline round-trip
     pipe = store.r.pipeline()
     for nd in subgraph["nodes"]:
-        pipe.hget(k_node_hash(nd["id"]), "risk")
+        pipe.hget(store.get_node_key(nd["id"]), "risk")
     risks = pipe.execute()
 
     out_nodes = []
