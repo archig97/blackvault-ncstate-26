@@ -3,6 +3,8 @@ from fastapi import FastAPI
 from .valkey_store import ValkeyStore
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+from .graph_tools import compute_hops_to_bad
+from .graph_features import compute_graph_features
 
 from .graph_api import router as graph_router
 
@@ -33,36 +35,48 @@ class Transaction(BaseModel):
 def ingest_transaction(tx: Transaction):
 
     tx_dict = tx.dict()
+    sender = tx.sender
 
-    # 1️⃣ Store raw transaction + update state
+    # 1️⃣ Storage + graph update
     store.add_transaction_to_stream(tx_dict)
     store.store_transaction_hash(tx_dict)
     store.update_graph(tx.sender, tx.receiver)
     store.update_behavior(tx_dict)
 
-    # 2️⃣ Extract multi-horizon features
+    # 2️⃣ Behavioral features
     features = store.extract_features(tx_dict)
 
-    # 3️⃣ Call risk engine
-    decision = risk_engine.score(features)
+    # 3️⃣ Graph-derived features
+    bad_nodes = set(store.r.smembers(store.BAD_NODES))
+    get_neighbors = lambda n: store.r.smembers(f"nbrs:{n}")
 
-    # decision must contain:
-    # {
-    #   "risk": float,
-    #   "flagged": bool,
-    #   "reasons": [...]
-    # }
-
-    # 4️⃣ Persist risk decision
-    store.store_decision(
-        tx.id,
-        tx.sender,
-        decision["risk"],
-        hops=0  # adjust later if graph exposure integrated
+    hops = compute_hops_to_bad(
+        sender,
+        get_neighbors,
+        bad_nodes,
+        max_depth=3
     )
 
-    # 5️⃣ Return decision to frontend
+    graph_feats = compute_graph_features(sender, store=store)
+
+    # Merge graph features into main feature dict
+    features["hops_to_bad"] = hops
+    features.update(graph_feats)
+
+    # 4️⃣ Risk scoring
+    decision = risk_engine.score(features)
+
+    # 5️⃣ Persist risk
+    store.store_decision(
+        tx.id,
+        sender,
+        decision["risk"],
+        hops=hops
+    )
+
     return decision
+
+
 
 @app.get("/tx/recent")
 def get_recent(limit: int = 100):
