@@ -34,7 +34,7 @@ def _k_hop_nodes(start: str, get_neighbors, k: int, max_expand_per_node: int = 3
     return list(visited)
 
 
-def compute_graph_features(node: str, k: int, store: ValkeyStore) -> Dict[str, Any]:
+def compute_graph_features(node: str, store: ValkeyStore, k=2) -> Dict[str, Any]:
     """
     Person 4 (UPDATED) outputs:
       - hops_to_bad

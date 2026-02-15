@@ -15,6 +15,7 @@ import json
 import random
 import time
 import uuid
+import requests
 from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Optional
 

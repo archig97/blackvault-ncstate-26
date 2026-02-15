@@ -22,6 +22,7 @@ app.include_router(graph_router)
 
 
 store = ValkeyStore()
+store.seed_bad_node("acct_999")
 
 class Transaction(BaseModel):
     id: str
