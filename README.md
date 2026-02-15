@@ -156,7 +156,7 @@ This allows compliance teams to act immediately.
 
 ### 6️⃣ Graph-Based Risk Propagation Engine (Core Foundation)
 
-At the core of bLACKVAULT lies a **graph-based risk modeling layer**.
+At the core of Blackvault lies a **graph-based risk modeling layer**.
 
 Instead of treating accounts as isolated entities, the system models the financial ecosystem as a **directed graph**:
 
@@ -226,7 +226,7 @@ This enables **network-aware fraud detection** rather than isolated account scor
 - Enables explainable risk tracing (path-based reasoning)  
 - Models real-world financial behavior more accurately  
 
-The graph-based engine transforms bLACKVAULT from a rule-based monitor into a **network intelligence system** — capable of mitigating risk propagation before it scales across the financial ecosystem.
+The graph-based engine transforms Blackvault from a rule-based monitor into a **network intelligence system** — capable of mitigating risk propagation before it scales across the financial ecosystem.
 
 
 
