@@ -16,6 +16,7 @@ class Transaction(BaseModel):
 
 @app.post("/tx")
 def ingest_transaction(tx: Transaction):
+
     tx_dict = tx.dict()
 
     store.add_transaction_to_stream(tx_dict)
@@ -23,11 +24,8 @@ def ingest_transaction(tx: Transaction):
     store.update_graph(tx.sender, tx.receiver)
     store.update_behavior(tx_dict)
 
-    risk, hops = risk_engine.score(tx_dict)
+    return {"status": "stored"}
 
-    store.store_decision(tx.id, tx.sender, risk, hops)
-
-    return {"risk": risk}
 @app.get("/tx/recent")
 def get_recent(limit: int = 100):
     return store.get_recent(limit)

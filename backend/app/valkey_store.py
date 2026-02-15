@@ -75,6 +75,41 @@ class ValkeyStore:
 
         pipe.execute()
 
+    def extract_features(self, tx: dict):
+        sender = tx["sender"]
+        ts = tx["ts"]
+        bucket = self.minute_bucket(ts)
+
+        cnt_key = self.get_count_key(sender, bucket)
+        vol_key = self.get_volume_key(sender, bucket)
+        uniq_key = self.get_unique_recipient_key(sender, bucket)
+
+        burst_count = int(self.r.get(cnt_key) or 0)
+        volume = float(self.r.get(vol_key) or 0)
+        unique_recipients = int(self.r.pfcount(uniq_key) or 0)
+
+        previous_risk = float(
+            self.r.hget(self.get_node_key(sender), "risk") or 0
+        )
+
+        # TEMP placeholders until baseline logic added
+        features = {
+            "velocity_z": burst_count / 10.0,
+            "dispersion_z": unique_recipients / 5.0,
+            "entropy_shift": 0.0,
+            "drain_ratio": volume / 10000.0,
+            "long_term_drift": 0.0,
+            "micro_pattern_score": 0.0,
+            "structural_risk": 0.0,
+            "risk_density": 0.0,
+            "maturity_penalty": 0.0,
+            "behavioral_drift_score": 0.0,
+            "suspicion": burst_count + volume / 1000.0,
+            "previous_risk": previous_risk
+        }
+
+        return features
+
     def store_decision(self, tx_id: str, sender: str, risk: int, hops: int):
         self.r.hset(f"tx:{tx_id}", mapping={
             "risk": risk,

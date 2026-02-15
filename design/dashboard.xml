@@ -1,0 +1,46 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="GraphShield Dashboard">
+    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Header -->
+        <mxCell id="header" value="HEADER: System Status | Tx/sec | Flagged Count | Attack Mode" 
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#1e88e5;" 
+          vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1400" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- Live Feed -->
+        <mxCell id="feed" value="LIVE TRANSACTION FEED&#10;&#10;- sender → receiver&#10;- amount&#10;- risk score&#10;- flagged badge&#10;&#10;(WebSocket Stream)" 
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#424242;" 
+          vertex="1" parent="1">
+          <mxGeometry x="40" y="120" width="700" height="350" as="geometry"/>
+        </mxCell>
+
+        <!-- Top Risk -->
+        <mxCell id="risk" value="TOP RISK ACCOUNTS&#10;&#10;- Account ID&#10;- Risk Score&#10;- Hops to Bad&#10;- Last Seen&#10;&#10;(Sorted Set: risk:rank)" 
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff3e0;strokeColor=#fb8c00;" 
+          vertex="1" parent="1">
+          <mxGeometry x="760" y="120" width="680" height="350" as="geometry"/>
+        </mxCell>
+
+        <!-- Node Inspector -->
+        <mxCell id="inspector" value="NODE INSPECTOR&#10;&#10;- Selected Account&#10;- Risk Breakdown&#10;- Burst Count&#10;- Unique Recipients&#10;- Volume&#10;- Hops to Bad&#10;&#10;(Explainability Panel)" 
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#43a047;" 
+          vertex="1" parent="1">
+          <mxGeometry x="40" y="500" width="700" height="350" as="geometry"/>
+        </mxCell>
+
+        <!-- Graph View -->
+        <mxCell id="graph" value="GRAPH VIEW&#10;&#10;- Selected Node Centered&#10;- Neighbor Nodes&#10;- Bad Nodes Highlighted&#10;- Risk Gradient Coloring&#10;&#10;(BFS Neighborhood Visualization)" 
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e5f5;strokeColor=#8e24aa;" 
+          vertex="1" parent="1">
+          <mxGeometry x="760" y="500" width="680" height="350" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
