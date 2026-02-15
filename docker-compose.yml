@@ -11,6 +11,7 @@ services:
     environment:
       - VALKEY_HOST=valkey
       - VALKEY_PORT=6379
+      - THREAT_SUMMARY_EVERY_N_TX=${THREAT_SUMMARY_EVERY_N_TX:-15}
     ports:
       - "8000:8000"
     depends_on:

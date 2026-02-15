@@ -35,7 +35,45 @@ function layoutCircle(centerId, nodes) {
   return out;
 }
 
-export default function GraphNeighborhood() {
+function toReactFlowNodes(centerId, rawNodes) {
+  const normalized = (rawNodes || []).map((n) => {
+    const id = String(n.id);
+    const risk = Number(n.risk || 0);
+    const isBad = Boolean(n.is_bad);
+
+    return {
+      id,
+      data: { label: `${id}\nRisk: ${risk}${isBad ? "\nKNOWN BAD" : ""}` },
+      style: nodeStyle(risk, isBad),
+      position: { x: 0, y: 0 },
+    };
+  });
+
+  if (!normalized.some((n) => n.id === centerId)) {
+    normalized.push({
+      id: centerId,
+      data: { label: `${centerId}\nRisk: 0` },
+      style: nodeStyle(0, false),
+      position: { x: 0, y: 0 },
+    });
+  }
+
+  return layoutCircle(centerId, normalized);
+}
+
+function toReactFlowEdges(rawEdges) {
+  return (rawEdges || []).map((e, i) => {
+    const source = String(e.from ?? e.source);
+    const target = String(e.to ?? e.target);
+    return {
+      id: `e-${source}-${target}-${i}`,
+      source,
+      target,
+    };
+  });
+}
+
+export default function GraphNeighborhood({ graphData }) {
   const [nodeId, setNodeId] = useState("acct_attack");
   const [depth, setDepth] = useState(2);
   const [nodes, setNodes] = useState([]);
@@ -43,7 +81,7 @@ export default function GraphNeighborhood() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
-  // ✅ NEW: metrics state
+  // metrics state
   const [metrics, setMetrics] = useState(null);
   const [metricsErr, setMetricsErr] = useState("");
 
@@ -57,28 +95,8 @@ export default function GraphNeighborhood() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      const rawNodes = data.nodes || [];
-      const rawEdges = data.edges || [];
-
-      if (!rawNodes.some((n) => n.id === nodeId)) {
-        rawNodes.push({ id: nodeId, risk: 0, is_bad: false });
-      }
-
-      const rfNodes = rawNodes.map((n) => ({
-        id: n.id,
-        data: { label: `${n.id}\nRisk: ${n.risk}${n.is_bad ? "\nKNOWN BAD" : ""}` },
-        style: nodeStyle(n.risk || 0, !!n.is_bad),
-        position: { x: 0, y: 0 },
-      }));
-
-      const rfEdges = rawEdges.map((e, i) => ({
-        id: `e-${e.from}-${e.to}-${i}`,
-        source: e.from,
-        target: e.to,
-      }));
-
-      setNodes(layoutCircle(nodeId, rfNodes));
-      setEdges(rfEdges);
+      setNodes(toReactFlowNodes(nodeId, data.nodes));
+      setEdges(toReactFlowEdges(data.edges));
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -86,7 +104,6 @@ export default function GraphNeighborhood() {
     }
   }, [nodeId, depth]);
 
-  // ✅ NEW: fetch P4 graph features
   const loadMetrics = useCallback(async () => {
     setMetricsErr("");
     try {
@@ -107,72 +124,223 @@ export default function GraphNeighborhood() {
     loadMetrics();
   }, [load, loadMetrics]);
 
-  // Optional helper for safe number formatting
   const fmt = (v) => (typeof v === "number" ? v.toFixed(3) : v ?? "-");
 
+  const incomingNodes = graphData?.nodes?.length ? toReactFlowNodes(nodeId, graphData.nodes) : nodes;
+  const incomingEdges = graphData?.links?.length ? toReactFlowEdges(graphData.links) : edges;
+
   return (
-    <div style={{ height: "92vh", width: "100%" }}>
-      <div style={{ padding: 12, display: "flex", gap: 12, alignItems: "center" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        width: "100%",
+        padding: 16,
+        color: "#e8f2ff",
+        background:
+          "radial-gradient(1000px 450px at 5% -5%, rgba(53,212,255,0.18), transparent 70%), radial-gradient(1000px 550px at 95% -10%, rgba(255,111,145,0.16), transparent 70%), linear-gradient(180deg, #0a1a38, #071126)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 16,
+          flexWrap: "wrap",
+          marginBottom: 12,
+        }}
+      >
         <div>
-          <div style={{ fontSize: 12, opacity: 0.7 }}>Center node</div>
-          <input
-            value={nodeId}
-            onChange={(e) => setNodeId(e.target.value)}
-            style={{ padding: 8, width: 220 }}
-          />
+          <div
+            style={{
+              display: "inline-block",
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: "1px",
+              textTransform: "uppercase",
+              borderRadius: 999,
+              padding: "6px 10px",
+              background: "linear-gradient(90deg, #9aff5c, #35d4ff)",
+              color: "#041324",
+              marginBottom: 8,
+            }}
+          >
+            BlackVault
+          </div>
+          <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.1 }}>Network View</div>
+          <div style={{ fontSize: 13, opacity: 0.78, marginTop: 6 }}>
+            Live graph traversal and exposure metrics for account investigations
+          </div>
         </div>
 
-        <div>
-          <div style={{ fontSize: 12, opacity: 0.7 }}>Depth</div>
-          <select value={depth} onChange={(e) => setDepth(Number(e.target.value))} style={{ padding: 8 }}>
-            <option value={1}>1</option>
-            <option value={2}>2</option>
-            <option value={3}>3</option>
-          </select>
-        </div>
-
-        <button onClick={() => { load(); loadMetrics(); }} disabled={loading} style={{ padding: "8px 12px" }}>
-          {loading ? "Loading…" : "Refresh"}
-        </button>
-
-        {err ? <div style={{ color: "crimson" }}>Error: {err}</div> : null}
-
-        <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.7 }}>
-          Backend: {API_BASE}
-        </div>
+        <div />
       </div>
 
-      {/* ✅ NEW: P4 metrics panel */}
-      <div style={{ padding: "0 12px 12px 12px" }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "stretch", flexWrap: "wrap" }}>
-          <div style={{ padding: 10, border: "1px solid #ddd", borderRadius: 10, minWidth: 320 }}>
-            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Graph-derived metrics (P4)</div>
+      <div
+        style={{
+          display: "grid",
+          gap: 12,
+          gridTemplateColumns: "1.2fr 1fr",
+          marginBottom: 12,
+        }}
+      >
+        <div
+          style={{
+            background: "rgba(8, 21, 46, 0.75)",
+            border: "1px solid rgba(141,185,255,0.25)",
+            borderRadius: 14,
+            padding: 12,
+          }}
+        >
+          <div style={{ display: "flex", gap: 10, alignItems: "end", flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 11, opacity: 0.72 }}>Center node</div>
+              <input
+                value={nodeId}
+                onChange={(e) => setNodeId(e.target.value)}
+                style={{
+                  marginTop: 4,
+                  background: "rgba(255,255,255,0.07)",
+                  color: "#ecf7ff",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: 10,
+                  padding: "9px 11px",
+                  width: 240,
+                }}
+              />
+            </div>
 
-            {metricsErr ? (
-              <div style={{ color: "crimson", fontSize: 12 }}>metrics error: {metricsErr}</div>
-            ) : metrics ? (
-              <div style={{ fontSize: 13, display: "grid", gridTemplateColumns: "160px 1fr", rowGap: 6 }}>
-                <div><b>hops_to_bad</b></div><div>{metrics.hops_to_bad}</div>
-                <div><b>risk_density</b></div><div>{fmt(metrics.risk_density)}</div>
-                <div><b>max_neighbor_risk</b></div><div>{fmt(metrics.max_neighbor_risk)}</div>
-                <div><b>edge_churn_1h</b></div><div>{fmt(metrics.edge_churn_1h)}</div>
-                <div><b>structural_risk</b></div><div>{fmt(metrics.structural_risk)}</div>
-                <div><b>structural_instability</b></div><div>{fmt(metrics.structural_instability)}</div>
-                <div><b>k_hop_nodes_count</b></div><div>{metrics.k_hop_nodes_count}</div>
-                <div><b>out_neighbors_count</b></div><div>{metrics.out_neighbors_count}</div>
-              </div>
-            ) : (
-              <div style={{ fontSize: 12, opacity: 0.7 }}>No metrics yet (try Refresh).</div>
-            )}
+            <div>
+              <div style={{ fontSize: 11, opacity: 0.72 }}>Depth</div>
+              <select
+                value={depth}
+                onChange={(e) => setDepth(Number(e.target.value))}
+                style={{
+                  marginTop: 4,
+                  background: "rgba(255,255,255,0.07)",
+                  color: "#ecf7ff",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: 10,
+                  padding: "9px 11px",
+                }}
+              >
+                <option value={1}>1 Hop</option>
+                <option value={2}>2 Hops</option>
+                <option value={3}>3 Hops</option>
+              </select>
+            </div>
+
+            <button
+              onClick={() => { load(); loadMetrics(); }}
+              disabled={loading}
+              style={{
+                border: "none",
+                borderRadius: 10,
+                padding: "10px 14px",
+                color: "#fff",
+                fontWeight: 700,
+                cursor: "pointer",
+                background: "linear-gradient(90deg, #2f7bff, #35d4ff)",
+              }}
+            >
+              {loading ? "Loading..." : "Refresh"}
+            </button>
+          </div>
+
+          {err ? (
+            <div style={{ marginTop: 8, color: "#ff8dac", fontSize: 12 }}>
+              Error: {err}
+            </div>
+          ) : null}
+        </div>
+
+        <div
+          style={{
+            background: "rgba(8, 21, 46, 0.75)",
+            border: "1px solid rgba(141,185,255,0.25)",
+            borderRadius: 14,
+            padding: 12,
+          }}
+        >
+          <div style={{ fontSize: 12, marginBottom: 8, opacity: 0.78 }}>Legend</div>
+          <div style={{ display: "grid", gap: 6, fontSize: 13 }}>
+            <div><span style={{ color: "#d32f2f", fontWeight: 700 }}>Known bad</span> node in red border</div>
+            <div><span style={{ color: "#f57c00", fontWeight: 700 }}>High risk</span> (80+) in orange</div>
+            <div><span style={{ color: "#fbc02d", fontWeight: 700 }}>Medium risk</span> (50+) in yellow</div>
+            <div><span style={{ color: "#388e3c", fontWeight: 700 }}>Low risk</span> {"(>0)"} in green</div>
           </div>
         </div>
       </div>
 
-      <ReactFlow nodes={nodes} edges={edges} fitView>
-        <MiniMap />
-        <Controls />
-        <Background />
-      </ReactFlow>
+      <div
+        style={{
+          display: "grid",
+          gap: 10,
+          gridTemplateColumns: "repeat(4, minmax(140px, 1fr))",
+          marginBottom: 12,
+        }}
+      >
+        <div style={{ background: "rgba(8,21,46,0.75)", border: "1px solid rgba(141,185,255,0.25)", borderRadius: 12, padding: 10 }}>
+          <div style={{ fontSize: 11, opacity: 0.7 }}>Hops to bad</div>
+          <div style={{ fontSize: 24, fontWeight: 800 }}>{metrics?.hops_to_bad ?? "-"}</div>
+        </div>
+        <div style={{ background: "rgba(8,21,46,0.75)", border: "1px solid rgba(141,185,255,0.25)", borderRadius: 12, padding: 10 }}>
+          <div style={{ fontSize: 11, opacity: 0.7 }}>Structural risk</div>
+          <div style={{ fontSize: 24, fontWeight: 800 }}>{fmt(metrics?.structural_risk)}</div>
+        </div>
+        <div style={{ background: "rgba(8,21,46,0.75)", border: "1px solid rgba(141,185,255,0.25)", borderRadius: 12, padding: 10 }}>
+          <div style={{ fontSize: 11, opacity: 0.7 }}>Risk density</div>
+          <div style={{ fontSize: 24, fontWeight: 800 }}>{fmt(metrics?.risk_density)}</div>
+        </div>
+        <div style={{ background: "rgba(8,21,46,0.75)", border: "1px solid rgba(141,185,255,0.25)", borderRadius: 12, padding: 10 }}>
+          <div style={{ fontSize: 11, opacity: 0.7 }}>Out neighbors</div>
+          <div style={{ fontSize: 24, fontWeight: 800 }}>{metrics?.out_neighbors_count ?? "-"}</div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          marginBottom: 12,
+          background: "rgba(8, 21, 46, 0.75)",
+          border: "1px solid rgba(141,185,255,0.25)",
+          borderRadius: 14,
+          padding: 12,
+        }}
+      >
+        <div style={{ fontSize: 12, opacity: 0.78, marginBottom: 8 }}>Graph-derived metrics (P4)</div>
+        {metricsErr ? (
+          <div style={{ color: "#ff8dac", fontSize: 12 }}>metrics error: {metricsErr}</div>
+        ) : metrics ? (
+          <div style={{ fontSize: 13, display: "grid", gridTemplateColumns: "200px 1fr", rowGap: 6 }}>
+            <div><b>hops_to_bad</b></div><div>{metrics.hops_to_bad}</div>
+            <div><b>risk_density</b></div><div>{fmt(metrics.risk_density)}</div>
+            <div><b>max_neighbor_risk</b></div><div>{fmt(metrics.max_neighbor_risk)}</div>
+            <div><b>edge_churn_1h</b></div><div>{fmt(metrics.edge_churn_1h)}</div>
+            <div><b>structural_risk</b></div><div>{fmt(metrics.structural_risk)}</div>
+            <div><b>structural_instability</b></div><div>{fmt(metrics.structural_instability)}</div>
+            <div><b>k_hop_nodes_count</b></div><div>{metrics.k_hop_nodes_count}</div>
+            <div><b>out_neighbors_count</b></div><div>{metrics.out_neighbors_count}</div>
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, opacity: 0.7 }}>No metrics yet (try Refresh).</div>
+        )}
+      </div>
+
+      <div
+        style={{
+          height: "58vh",
+          borderRadius: 14,
+          overflow: "hidden",
+          border: "1px solid rgba(141,185,255,0.3)",
+          background: "rgba(5,16,36,0.85)",
+        }}
+      >
+        <ReactFlow nodes={incomingNodes} edges={incomingEdges} fitView>
+          <MiniMap />
+          <Controls />
+          <Background />
+        </ReactFlow>
+      </div>
     </div>
   );
 }
