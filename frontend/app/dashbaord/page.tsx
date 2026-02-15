@@ -18,8 +18,12 @@ export default function DashboardPage() {
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [threatSummary, setThreatSummary] = useState("Waiting for telemetry...");
   const [connected, setConnected] = useState(false);
-  const [accountSearch, setAccountSearch] = useState("acct_attack");
+  const [accountSearch, setAccountSearch] = useState("");
   const [searchErr, setSearchErr] = useState("");
+  
+  // NEW: Filters for Phase 2
+  const [filterType, setFilterType] = useState<string>("all");
+  const [filterRiskMin, setFilterRiskMin] = useState<number>(0);
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -190,9 +194,41 @@ export default function DashboardPage() {
           className={styles.searchInput}
           value={accountSearch}
           onChange={(e) => setAccountSearch(e.target.value)}
-          placeholder="Search account id (e.g., acct_44)"
+          placeholder="Search account id (e.g., acct_launder_0)"
         />
         <button className={styles.button} onClick={onSearchAccount}>Search Account</button>
+        
+        {/* NEW: Filter Controls for Phase 2 */}
+        <div style={{ marginLeft: "1rem", display: "flex", gap: "1rem", alignItems: "center" }}>
+          <div>
+            <label style={{ marginRight: "0.5rem" }}>Type:</label>
+            <select 
+              value={filterType} 
+              onChange={(e) => setFilterType(e.target.value)}
+              style={{ padding: "0.5rem" }}
+            >
+              <option value="all">All Types</option>
+              <option value="normal">Normal Users</option>
+              <option value="merchant">Merchants</option>
+              <option value="fraudulent">Fraudulent</option>
+              <option value="compromised">Compromised</option>
+              <option value="sanctioned">Sanctioned</option>
+            </select>
+          </div>
+          
+          <div>
+            <label style={{ marginRight: "0.5rem" }}>Min Risk: {filterRiskMin}</label>
+            <input 
+              type="range" 
+              min="0" 
+              max="100" 
+              value={filterRiskMin}
+              onChange={(e) => setFilterRiskMin(parseInt(e.target.value))}
+              style={{ width: "150px" }}
+            />
+          </div>
+        </div>
+        
         {searchErr ? <span className={styles.errorText}>{searchErr}</span> : null}
       </div>
 
@@ -222,7 +258,15 @@ export default function DashboardPage() {
 
       <div className={styles.mainGrid}>
         <TransactionFeed transactions={transactions} />
-        <Leaderboard accounts={topAccounts} onSelect={onSelectAccount} onSetAlert={onSetAlert} />
+        <Leaderboard 
+          accounts={topAccounts.filter(acc => {
+            const matchType = filterType === "all" || acc.type === filterType;
+            const matchRisk = acc.risk >= filterRiskMin;
+            return matchType && matchRisk;
+          })} 
+          onSelect={onSelectAccount} 
+          onSetAlert={onSetAlert} 
+        />
       </div>
 
       {selectedAccount && (

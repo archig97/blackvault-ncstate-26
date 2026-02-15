@@ -104,78 +104,96 @@ def generate_normal_tx(accounts: List[str]) -> Dict:
 
 
 @dataclass
-class AttackState:
+class SimulationScenario:
     """
-    State to create coherent attack behavior:
-    - A fixed attacker sends bursts and fan-outs
-    - Uses rotating unique receivers
-    - Occasionally routes to a known bad actor for contamination
+    Configurable attack scenario with realistic account ecosystem.
+    Replaces single hardcoded attacker model.
     """
-    attacker: str = "acct_attack"
-    bad_actor: str = "acct_999"
+    normal_accounts: List[str]         # Regular users (low activity)
+    merchant_accounts: List[str]       # High-freq legitimate (baseline)
+    fraudster_accounts: List[str]      # Primary attackers
+    laundering_hubs: List[str]         # Compromised intermediaries
+    sanctioned_accounts: List[str]     # Known bad destinations
+    
     phase: int = 0
-    used_receivers: set = field(default_factory=set)
     phase_tx_count: int = 0
+    current_fraudster_idx: int = 0
 
 
-def generate_attack_tx(accounts: List[str], state: AttackState) -> Dict:
+def create_attack_scenario(
+    normal_count: int = 150,
+    merchant_count: int = 30,
+    fraudster_count: int = 3,
+    laundering_hub_count: int = 5,
+    sanctioned_count: int = 3,
+) -> SimulationScenario:
     """
-    Attack mode patterns (combined):
-    1) Burst: same sender repeatedly sends fast
-    2) Fan-out: many unique receivers within a short window
-    3) Contamination: sometimes link to bad actor
+    Build a realistic multi-actor attack scenario.
+    
+    Default: 150 normal users + 30 merchants (cover)
+             3 fraudsters + 5 laundering hubs + 3 sanctioned
+             Total: ~191 accounts (much better than acct_attack + acct_999)
     """
-    sender = state.attacker
-    state.phase_tx_count += 1
+    return SimulationScenario(
+        normal_accounts=[f"acct_user_{i}" for i in range(normal_count)],
+        merchant_accounts=[f"acct_merchant_{i}" for i in range(merchant_count)],
+        fraudster_accounts=[f"acct_fraud_{i}" for i in range(fraudster_count)],
+        laundering_hubs=[f"acct_launder_{i}" for i in range(laundering_hub_count)],
+        sanctioned_accounts=[f"acct_sanctioned_{i}" for i in range(sanctioned_count)],
+    )
 
-    # Simple phased behavior:
-    # phase 0: burst to a small pool (build some edges)
-    # phase 1: fan-out to many unique receivers (laundering feel)
-    # phase 2: chain-hop simulation (attacker -> mid -> bad) by sometimes hitting bad_actor
-    if state.phase == 0:
-        # burst: small pool of receivers
-        pool = random.sample(accounts, k=min(8, len(accounts)))
-        receiver = random.choice(pool)
-        amount = random.uniform(50, 300)  # moderate
-        if state.phase_tx_count >= 25:
-            state.phase = 1
-            state.phase_tx_count = 0
 
-    elif state.phase == 1:
-        # fan-out: try to pick a receiver not used recently
-        receiver = random.choice(accounts)
-        tries = 0
-        while receiver in state.used_receivers and tries < 20:
-            receiver = random.choice(accounts)
-            tries += 1
-        state.used_receivers.add(receiver)
-
-        amount = random.uniform(5, 200)  # smurfing-ish
-
-        # After enough unique receivers, move to contamination phase
-        if len(state.used_receivers) >= 20 or state.phase_tx_count >= 40:
-            state.phase = 2
-            state.phase_tx_count = 0
-
-    else:
-        # contamination: occasionally send to bad actor to create short paths
-        if random.random() < 0.25:
-            receiver = state.bad_actor
-        else:
-            receiver = random.choice(accounts)
-
-        # keep amounts small-ish to resemble laundering/structuring
-        amount = random.uniform(5, 150)
-
-        # Reset attack cycle to keep the demo repeating
-        if state.phase_tx_count >= 40:
-            state.phase = 0
-            state.phase_tx_count = 0
-            state.used_receivers.clear()
-
-    # Ensure receiver != sender
-    if receiver == sender:
-        receiver = random.choice([a for a in accounts if a != sender])
+def generate_attack_tx(scenario: SimulationScenario) -> Dict:
+    """
+    Multi-phase attack pattern showing realistic fraud lifecycle.
+    
+    Phase 0: Reconnaissance - fraudster probes target accounts (merchants + hubs)
+    Phase 1: Exploitation - fraudster sends to laundering hubs
+    Phase 2: Routing - hubs distribute to sanctioned accounts
+    Phase 3: Cover - merchants conduct normal transactions
+    """
+    sender = None
+    receiver = None
+    amount = 0.0
+    
+    scenario.phase_tx_count += 1
+    
+    # Cycle through fraudsters
+    if scenario.phase_tx_count >= 100:
+        scenario.phase_tx_count = 0
+        scenario.current_fraudster_idx = (scenario.current_fraudster_idx + 1) % len(scenario.fraudster_accounts)
+        scenario.phase = (scenario.phase + 1) % 4
+    
+    if scenario.phase == 0:  # RECONNAISSANCE
+        # Fraudster probes merchants and laundering hubs
+        sender = scenario.fraudster_accounts[scenario.current_fraudster_idx]
+        receiver = random.choice(scenario.merchant_accounts + scenario.laundering_hubs)
+        amount = random.uniform(100, 500)  # Small probes
+        
+    elif scenario.phase == 1:  # EXPLOITATION
+        # Fraudster sends larger amounts to laundering hubs
+        sender = scenario.fraudster_accounts[scenario.current_fraudster_idx]
+        receiver = random.choice(scenario.laundering_hubs)
+        amount = random.uniform(1000, 5000)  # Larger transfers
+        
+    elif scenario.phase == 2:  # ROUTING
+        # Laundering hub routes to sanctioned accounts
+        sender = random.choice(scenario.laundering_hubs)
+        receiver = random.choice(scenario.sanctioned_accounts)
+        amount = random.uniform(500, 2000)  # Split amounts
+        
+    else:  # PHASE 3: COVER
+        # Merchants conduct normal high-freq transactions
+        sender = random.choice(scenario.merchant_accounts)
+        receiver = random.choice(scenario.normal_accounts)
+        amount = random.uniform(50, 300)
+    
+    # Ensure sender != receiver
+    if sender == receiver:
+        receiver = random.choice(scenario.normal_accounts + scenario.merchant_accounts + 
+                                scenario.laundering_hubs + scenario.fraudster_accounts)
+        while receiver == sender:
+            receiver = random.choice(scenario.normal_accounts)
 
     return make_tx(sender=sender, receiver=receiver, amount=amount, tx_type="bank", channel="p2p")
 

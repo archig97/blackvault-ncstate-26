@@ -331,3 +331,53 @@ class ValkeyStore:
 
     def seed_bad_node(self, node="acct_999"):
         self.r.sadd(self.BAD_NODES, node)
+
+    # ============= ACCOUNT METADATA (NEW) =============
+
+    def set_account_metadata(self, account_id: str, account_type: str, tags: list = None):
+        """
+        Store account classification and tags.
+        
+        account_type options:
+        - 'normal': Regular user accounts
+        - 'merchant': High-frequency legitimate sellers
+        - 'fraudulent': Known/suspected fraudsters
+        - 'compromised': Account taken over/acting anomalously
+        - 'sanctioned': Known bad actors / honeypots
+        """
+        metadata = {
+            'type': account_type,
+            'tags': json.dumps(tags or []),
+            'created_at': str(int(time.time())),
+            'status': 'active'
+        }
+        self.r.hset(f"acct:meta:{account_id}", mapping=metadata)
+        # Index by type for lookups
+        self.r.sadd(f"accounts:type:{account_type}", account_id)
+
+    def get_account_metadata(self, account_id: str) -> dict:
+        """Retrieve account metadata"""
+        meta = self.r.hgetall(f"acct:meta:{account_id}")
+        if meta and 'tags' in meta:
+            meta['tags'] = json.loads(meta['tags'])
+        return meta
+
+    def get_accounts_by_type(self, account_type: str) -> list:
+        """Get all accounts of a specific type"""
+        return list(self.r.smembers(f"accounts:type:{account_type}"))
+
+    def get_all_account_types(self) -> dict:
+        """Return summary of account distribution"""
+        types = ['normal', 'merchant', 'fraudulent', 'compromised', 'sanctioned']
+        return {
+            t: len(self.get_accounts_by_type(t)) 
+            for t in types
+        }
+
+    def add_account_tag(self, account_id: str, tag: str):
+        """Add a tag to an account (e.g., 'high_volume', 'new', 'dormant')"""
+        meta = self.get_account_metadata(account_id)
+        tags = meta.get('tags', [])
+        if tag not in tags:
+            tags.append(tag)
+            self.r.hset(f"acct:meta:{account_id}", 'tags', json.dumps(tags))
