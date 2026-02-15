@@ -88,12 +88,9 @@ def compute_graph_features(node: str, k: int, store: ValkeyStore) -> Dict[str, A
 
     # 4) edge churn using your existing rolling recipient sets written by valkey_store.update_behavior()
     # keys: set:{horizon}:{acct}:recipients
-    uniq_1h = int(r.scard(f"set:1h:{node}:recipients"))
-    uniq_24h = int(r.scard(f"set:24h:{node}:recipients"))
-    edge_churn_1h = float(uniq_1h) / float(max(1, uniq_24h))
-
-    # 5) instability (simple + demo-friendly)
-    structural_instability = 0.6 * edge_churn_1h + 0.4 * structural_risk
+    uniq_total = int(r.scard(f"rcpt:{node}"))
+    edge_churn_1h = float(uniq_total) / 10.0
+    structural_instability = edge_churn_1h
 
     return {
         "node": node,

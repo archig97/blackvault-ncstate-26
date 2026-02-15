@@ -3,20 +3,18 @@ from redis import Redis
 from .valkey_store import ValkeyStore
 from .graph_features import compute_graph_features
 
-from .valkey import get_client
+
 from .graph_tools import build_neighborhood, compute_hops_to_bad
 
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 
-def valkey_dep() -> Redis:
-    return get_client()
+store = ValkeyStore()
 
-def store_dep(r: Redis = Depends(valkey_dep)) -> ValkeyStore:
-    return ValkeyStore(r)
+
 
 @router.get("/neighborhood")
-def neighborhood(node: str, depth: int = 2, store: ValkeyStore = Depends(store_dep)):
+def neighborhood(node: str, store, depth: int = 2):
     """
     Returns a subgraph around `node` up to `depth` hops (outgoing direction).
     Enriches nodes with risk + is_bad for UI.
@@ -44,13 +42,15 @@ def neighborhood(node: str, depth: int = 2, store: ValkeyStore = Depends(store_d
     return {"nodes": out_nodes, "edges": subgraph["edges"]}
 
 @router.get("/hops")
-def hops(node: str, store: ValkeyStore = Depends(store_dep)):
-    bad_nodes = set(store.r.smembers(BAD_NODES_SET))
+def hops(node: str, store):
+    bad_nodes = set(store.r.smembers(store.BAD_NODES))
     get_neighbors = lambda n: store.r.smembers(f"nbrs:{n}")
     h = compute_hops_to_bad(node, get_neighbors, bad_nodes, max_depth=3)
     return {"node": node, "hops_to_bad": h}
 
+
 @router.get("/features")
-def features(node: str, k: int = 2, r: Redis = Depends(valkey_dep)):
-    store = ValkeyStore(r)
-    return compute_graph_features(node, k, store)
+def features(node: str, k: int = 2):
+
+    gf = compute_graph_features(node, k=k, store=store)
+    return gf
