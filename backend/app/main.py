@@ -61,7 +61,10 @@ def ingest_transaction(tx: Transaction):
 
     # Merge graph features into main feature dict
     features["hops_to_bad"] = hops
-    features.update(graph_feats)
+    features.update({
+    "structural_risk": graph_feats.get("structural_risk", 0.0),
+    "risk_density": graph_feats.get("risk_density", 0.0)
+})
 
     # 4️⃣ Risk scoring
     decision = risk_engine.score(features)
