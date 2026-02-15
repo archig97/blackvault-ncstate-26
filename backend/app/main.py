@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 
 from .graph_api import router as graph_router
-from .ingest_api import router as ingest_router
+
 import time
 
 # Import risk engine
@@ -14,10 +14,11 @@ from .risk_engine import RiskEngine
 print("MAIN.PY LOADED")
 
 risk_engine = RiskEngine()
-app.include_router(graph_router)
-app.include_router(ingest_router)
-
 app = FastAPI()
+app.include_router(graph_router)
+
+
+
 store = ValkeyStore()
 
 class Transaction(BaseModel):
