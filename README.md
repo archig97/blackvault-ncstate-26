@@ -139,6 +139,7 @@ These signals contribute to a dynamic risk score that is:
 
 ---
 
+
 ### 5️⃣ Live Dashboard
 
 The dashboard provides:
@@ -150,6 +151,84 @@ The dashboard provides:
 - 🧠 Behavioral breakdown per account  
 
 This allows compliance teams to act immediately.
+
+---
+
+### 6️⃣ Graph-Based Risk Propagation Engine (Core Foundation)
+
+At the core of bLACKVAULT lies a **graph-based risk modeling layer**.
+
+Instead of treating accounts as isolated entities, the system models the financial ecosystem as a **directed graph**:
+
+- **Nodes** → Bank accounts  
+- **Edges** → Transactions between accounts  
+- **Edge Weights** → Transaction amount, frequency, velocity  
+- **Node Attributes** → Risk score, activity metrics, anomaly signals  
+
+This graph abstraction enables detection of *network-level fraud patterns*, not just individual anomalies.
+
+---
+
+#### 🔎 Why Graph Modeling?
+
+Traditional rule engines evaluate accounts independently. However, real-world financial crime operates through **networks**, including:
+
+- Mule account chains  
+- Circular fund movement  
+- Layering through intermediary accounts  
+- Rapid propagation of funds across clusters  
+
+Graph modeling allows bLACKVAULT to detect:
+
+- Suspicious fund flow paths  
+- High-risk clusters  
+- Central “hub” accounts acting as liquidity routers  
+- Abnormal connectivity patterns  
+
+---
+
+#### ⚠️ Risk Propagation Logic
+
+When an account is flagged or exhibits anomalous behavior:
+
+1. Its **node risk score increases**.
+2. Connected nodes receive a **propagated risk adjustment**.
+3. Propagation strength is influenced by:
+   - Transaction recency
+   - Transaction volume
+   - Frequency of interactions
+   - Directionality of funds
+
+This prevents:
+
+- Hidden mule accounts escaping detection  
+- Secondary accounts laundering funds unnoticed  
+- Fraud networks operating through distributed low-risk nodes  
+
+---
+
+#### 📊 Example Scenario
+
+If Account A rapidly sends funds to Accounts B, C, and D:
+
+- A’s risk score spikes due to velocity anomaly.
+- B, C, and D inherit partial risk due to graph proximity.
+- If B forwards funds to E, risk continues to propagate with decay.
+
+This enables **network-aware fraud detection** rather than isolated account scoring.
+
+---
+
+#### 🧠 Design Benefits
+
+- Detects coordinated fraud rings  
+- Identifies systemic risk clusters  
+- Enables explainable risk tracing (path-based reasoning)  
+- Models real-world financial behavior more accurately  
+
+The graph-based engine transforms bLACKVAULT from a rule-based monitor into a **network intelligence system** — capable of mitigating risk propagation before it scales across the financial ecosystem.
+
+
 
 ---
 
