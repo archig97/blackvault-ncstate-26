@@ -1,4 +1,4 @@
-# 🛡️ bLACKVAULT  
+# 🛡️ Blackvault  
 ### Big Score Track — Financial Technology & Cryptocurrency
 
 ---
