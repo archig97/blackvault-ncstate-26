@@ -5,13 +5,13 @@
 
 ## 📌 Overview
 
-**bLACKVAULT** is a real-time financial risk intelligence platform designed to help banks detect, score, and flag malicious accounts based on transaction behavior patterns.
+**Blackvault** is a real-time financial risk intelligence platform designed to help banks detect, score, and flag malicious accounts based on transaction behavior patterns.
 
 Built for the **Big Score (Financial Technology & Cryptocurrency)** hackathon track, the system addresses a critical institutional challenge:
 
 > How can banks proactively identify suspicious accounts and anomalous transaction behavior before financial loss or regulatory exposure occurs?
 
-bLACKVAULT simulates live transaction streams, computes dynamic risk scores, and surfaces actionable intelligence through a real-time monitoring dashboard.
+Blackvault simulates live transaction streams, computes dynamic risk scores, and surfaces actionable intelligence through a real-time monitoring dashboard.
 
 ---
 
@@ -30,13 +30,13 @@ Traditional monitoring systems are often:
 - Operationally opaque  
 - Poorly visualized for analysts  
 
-bLACKVAULT closes this gap with a real-time, backend-driven detection engine.
+Blackvault closes this gap with a real-time, backend-driven detection engine.
 
 ---
 
 ## 💡 Solution
 
-bLACKVAULT is a scalable risk detection engine built using:
+Blackvault is a scalable risk detection engine built using:
 
 - **FastAPI (Python)** for high-performance APIs  
 - **Valkey** as an in-memory data store  
@@ -66,7 +66,7 @@ Valkey (In-Memory Store)
 Live Risk Dashboard
 
 
----
+```
 
 ## 🔧 Core Components
 
@@ -155,7 +155,7 @@ This allows compliance teams to act immediately.
 
 ## 🚀 Use Cases
 
-bLACKVAULT is applicable to:
+Blackvault is applicable to:
 
 - Retail banks  
 - Digital-first neobanks  
@@ -181,7 +181,7 @@ The Big Score track emphasizes:
 - Secure fintech infrastructure  
 - Cryptocurrency fraud detection  
 
-bLACKVAULT aligns directly by providing:
+Blackvault aligns directly by providing:
 
 - Real-time fraud detection capabilities  
 - High-throughput backend architecture  
