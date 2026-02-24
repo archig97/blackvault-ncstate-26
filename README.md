@@ -146,7 +146,7 @@ Then README renders:
 
 ![Network View](docs/images/network-view.png)
 ![Account Investigation Modal 1](docs/images/account-investigation-1.png)
-![Account Investigation Modal 2](docs/images/account-investigation-2.png)
+![Account Investigation Modal 2](docs/images/account-investigation-2-small.png)
 
 ## Notes
 
