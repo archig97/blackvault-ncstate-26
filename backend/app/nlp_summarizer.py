@@ -35,6 +35,9 @@ class NLPSummarizer:
         inputs = (metrics or {}).get("inputs", {})
         contributions = (metrics or {}).get("contributions", {})
         final_risk = float(components.get("final_risk", risk) or risk or 0.0)
+        ml_prob = float(components.get("ml_probability", 0.0) or 0.0)
+        anomaly_prob = float(components.get("anomaly_probability", 0.0) or 0.0)
+        model_conf = float(components.get("model_confidence", 0.0) or 0.0)
 
         if not reasons:
             if final_risk < 30:
@@ -72,9 +75,15 @@ class NLPSummarizer:
         else:
             severity = "low-to-moderate"
 
+        model_text = (
+            f" ML probability is {ml_prob * 100:.1f}%"
+            f" (anomaly channel {anomaly_prob * 100:.1f}%, confidence {model_conf * 100:.1f}%)."
+        )
+
         return (
             f"{account} shows {severity} fraud risk driven by {head}. "
-            f"Network proximity is {hops} hops from known bad entities, indicating elevated propagation risk.{top_driver_text} "
+            f"Network proximity is {hops} hops from known bad entities, indicating elevated propagation risk.{top_driver_text}"
+            f"{model_text} "
             "Recommended action: review last-hop counterparties and temporarily limit outbound transfer velocity."
         )
 
@@ -103,6 +112,14 @@ class NLPSummarizer:
         second_theme = REASON_TO_THEME.get(second_reason, second_reason.lower()) if second_reason else None
 
         top_ids = ", ".join([a.get("id", "unknown") for a in top_accounts[:3]])
+        avg_ml_prob = 0.0
+        if top_accounts:
+            probs = []
+            for a in top_accounts:
+                comps = ((a.get("metrics") or {}).get("components") or {})
+                probs.append(float(comps.get("ml_probability", 0.0) or 0.0))
+            if probs:
+                avg_ml_prob = sum(probs) / len(probs)
 
         pressure = "stable"
         if avg_risk >= 70 or high_risk_count >= 5:
@@ -117,5 +134,6 @@ class NLPSummarizer:
         return (
             f"Bank-wide risk pressure is {pressure} across {tx_total} observed transactions. "
             f"{trend_line}, led by accounts {top_ids}. "
+            f"Average model-estimated fraud probability among top accounts is {avg_ml_prob * 100:.1f}%. "
             "Prioritize review of these accounts and first-hop counterparties for coordinated activity."
         )

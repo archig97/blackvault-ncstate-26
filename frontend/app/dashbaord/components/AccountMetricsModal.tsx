@@ -1,9 +1,15 @@
 import styles from "../dashboard.module.css";
 import { riskColor } from "../../lib/riskColor";
+import { useState } from "react";
 
 type Props = {
   account: any;
   onClose: () => void;
+  onReviewAction: (
+    accountId: string,
+    action: "open" | "under_review" | "confirm_fraud" | "false_positive" | "escalate" | "snooze",
+    payload?: { reviewer?: string; notes?: string; snooze_hours?: number }
+  ) => Promise<void> | void;
 };
 
 function fmt(v: any) {
@@ -31,12 +37,15 @@ function KVTable({ title, obj }: { title: string; obj: Record<string, any> }) {
   );
 }
 
-export default function AccountMetricsModal({ account, onClose }: Props) {
+export default function AccountMetricsModal({ account, onClose, onReviewAction }: Props) {
   if (!account) return null;
 
   const metrics = account.metrics || {};
   const components = metrics.components || {};
   const recentTx = account.recent_transactions || [];
+  const review = account.review || {};
+  const [reviewer, setReviewer] = useState("analyst");
+  const [notes, setNotes] = useState("");
 
   const scoreKeys = [
     "behavioral_score",
@@ -81,6 +90,38 @@ export default function AccountMetricsModal({ account, onClose }: Props) {
           <div className={styles.kpiMini}>
             <div className={styles.kpiLabel}>Alert</div>
             <div className={styles.kpiValue}>{account.alert_set ? "SET" : "NOT SET"}</div>
+          </div>
+        </div>
+
+        <div className={styles.metricsBlock}>
+          <div className={styles.metricsTitle}>Review Workflow</div>
+          <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ fontSize: 13, opacity: 0.8 }}>
+              Status: <b>{review.status || "NONE"}</b>
+              {review.reviewer ? ` | reviewer: ${review.reviewer}` : ""}
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <input
+                value={reviewer}
+                onChange={(e) => setReviewer(e.target.value)}
+                placeholder="reviewer"
+                style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.06)", color: "inherit" }}
+              />
+              <input
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="notes"
+                style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.06)", color: "inherit", minWidth: 220 }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button className={styles.button} onClick={() => onReviewAction(account.id, "open", { reviewer, notes })}>Open</button>
+              <button className={styles.buttonGhost} onClick={() => onReviewAction(account.id, "under_review", { reviewer, notes })}>Under Review</button>
+              <button className={styles.button} onClick={() => onReviewAction(account.id, "confirm_fraud", { reviewer, notes })}>Confirm Fraud</button>
+              <button className={styles.buttonGhost} onClick={() => onReviewAction(account.id, "false_positive", { reviewer, notes })}>False Positive</button>
+              <button className={styles.button} onClick={() => onReviewAction(account.id, "escalate", { reviewer, notes })}>Escalate</button>
+              <button className={styles.buttonGhost} onClick={() => onReviewAction(account.id, "snooze", { reviewer, notes, snooze_hours: 24 })}>Snooze 24h</button>
+            </div>
           </div>
         </div>
 

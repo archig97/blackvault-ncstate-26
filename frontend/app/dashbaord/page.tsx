@@ -155,6 +155,47 @@ export default function DashboardPage() {
     }
   };
 
+  const onReviewAction = async (
+    accountId: string,
+    action: "open" | "under_review" | "confirm_fraud" | "false_positive" | "escalate" | "snooze",
+    payload?: { reviewer?: string; notes?: string; snooze_hours?: number }
+  ) => {
+    try {
+      const res = await fetch(`${API_BASE}/account/${encodeURIComponent(accountId)}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          reviewer: payload?.reviewer || "analyst",
+          notes: payload?.notes || "",
+          snooze_hours: payload?.snooze_hours || 24,
+        }),
+      });
+      if (!res.ok) return;
+      const out = await res.json();
+      const alertSet = Boolean(out?.alert_set);
+      const review = out?.review || {};
+
+      setTopAccounts((prev) =>
+        prev.map((a) =>
+          a.id === accountId ? { ...a, alert_set: alertSet, review } : a
+        )
+      );
+      setSelectedAccount((prev: any) =>
+        prev && prev.id === accountId
+          ? {
+              ...prev,
+              alert_set: alertSet,
+              review,
+              review_history: out?.review_history || prev.review_history || [],
+            }
+          : prev
+      );
+    } catch {
+      // ignore transient failures; user can retry
+    }
+  };
+
   const highRiskCount = topAccounts.filter((a) => Number(a.risk || 0) >= 70).length;
   const avgRisk =
     transactions.length > 0
@@ -228,6 +269,7 @@ export default function DashboardPage() {
       {selectedAccount && (
         <AccountMetricsModal
           account={selectedAccount}
+          onReviewAction={onReviewAction}
           onClose={() => setSelectedAccount(null)}
         />
       )}

@@ -65,7 +65,9 @@ export default function Leaderboard({ accounts, onSelect, onSetAlert }: any) {
               >
                 <div>
                   <div className={styles.accountId}>{acc.id}</div>
-                  <div className={styles.accountMeta}>hops: {acc.hops_to_bad ?? "-"}</div>
+                  <div className={styles.accountMeta}>
+                    hops: {acc.hops_to_bad ?? "-"} | review: {acc?.review?.status || "NONE"}
+                  </div>
                 </div>
 
                 <div className={styles.scoreCluster}>

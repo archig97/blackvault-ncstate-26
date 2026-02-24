@@ -10,6 +10,8 @@ class ValkeyStore:
     BAD_NODES = "bad:nodes"
     RISK_RANK = "risk:rank"
     THREAT_SUMMARY_KEY = "threat:summary"
+    ALERT_CASE_PREFIX = "alertcase:"
+    ALERT_HISTORY_PREFIX = "alerthist:"
     ROLLING_TTL = 600  # seconds
 
     def __init__(self, host=None, port=None):
@@ -40,6 +42,12 @@ class ValkeyStore:
 
     def get_recipient_history_key(self, sender: str):
         return f"rcpt:{sender}"
+
+    def get_alert_case_key(self, account_id: str):
+        return f"{self.ALERT_CASE_PREFIX}{account_id}"
+
+    def get_alert_history_key(self, account_id: str):
+        return f"{self.ALERT_HISTORY_PREFIX}{account_id}"
 
     def add_transaction_to_stream(self, tx: dict):
         return self.r.xadd(self.TX_STREAM, tx)
@@ -243,10 +251,85 @@ class ValkeyStore:
 
     def set_account_alert(self, account_id: str, enabled: bool = True):
         self.r.hset(self.get_node_key(account_id), "alert_set", "1" if enabled else "0")
+        if enabled:
+            case = self.get_alert_case(account_id)
+            if case.get("status") in ("NONE", ""):
+                self.set_alert_case(
+                    account_id,
+                    status="OPEN",
+                    reviewer="system",
+                    notes="Alert enabled",
+                )
+        else:
+            self.set_alert_case(
+                account_id,
+                status="NONE",
+                reviewer="system",
+                notes="Alert disabled",
+            )
 
     def get_account_alert(self, account_id: str) -> bool:
         raw = self.r.hget(self.get_node_key(account_id), "alert_set")
         return str(raw or "0") == "1"
+
+    def set_alert_case(
+        self,
+        account_id: str,
+        *,
+        status: str,
+        reviewer: str = "analyst",
+        notes: str = "",
+        snooze_until_ts: int | None = None,
+    ):
+        now = int(time.time())
+        mapping = {
+            "status": status,
+            "reviewer": reviewer,
+            "notes": notes,
+            "updated_at": now,
+        }
+        if snooze_until_ts is not None:
+            mapping["snooze_until_ts"] = int(snooze_until_ts)
+
+        self.r.hset(self.get_alert_case_key(account_id), mapping=mapping)
+        event = {
+            "status": status,
+            "reviewer": reviewer,
+            "notes": notes,
+            "ts": now,
+        }
+        if snooze_until_ts is not None:
+            event["snooze_until_ts"] = int(snooze_until_ts)
+        self.r.lpush(self.get_alert_history_key(account_id), json.dumps(event))
+        self.r.ltrim(self.get_alert_history_key(account_id), 0, 49)
+
+    def get_alert_case(self, account_id: str):
+        raw = self.r.hgetall(self.get_alert_case_key(account_id))
+        if not raw:
+            return {
+                "status": "NONE",
+                "reviewer": "",
+                "notes": "",
+                "updated_at": 0,
+                "snooze_until_ts": 0,
+            }
+        return {
+            "status": raw.get("status", "NONE"),
+            "reviewer": raw.get("reviewer", ""),
+            "notes": raw.get("notes", ""),
+            "updated_at": int(raw.get("updated_at", 0) or 0),
+            "snooze_until_ts": int(raw.get("snooze_until_ts", 0) or 0),
+        }
+
+    def get_alert_history(self, account_id: str, limit: int = 10):
+        rows = self.r.lrange(self.get_alert_history_key(account_id), 0, max(0, limit - 1))
+        out = []
+        for row in rows:
+            try:
+                out.append(json.loads(row))
+            except Exception:
+                pass
+        return out
 
     def get_latest_tx_for_sender(self, sender: str, scan_limit: int = 2000):
         """
@@ -312,6 +395,8 @@ class ValkeyStore:
             "out_neighbors_count": int(self.r.scard(self.get_neighbors_key(account_id))),
             "unique_recipients_total": int(self.r.scard(self.get_recipient_history_key(account_id))),
             "recent_transactions": self.get_account_recent_transactions(account_id, limit=10),
+            "review": self.get_alert_case(account_id),
+            "review_history": self.get_alert_history(account_id, limit=10),
         }
 
     def get_top_risk_accounts(self, limit=10):

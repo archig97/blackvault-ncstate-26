@@ -2,6 +2,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import time
 
 from .valkey_store import ValkeyStore
 from .graph_tools import build_neighborhood, compute_hops_to_bad
@@ -128,6 +129,13 @@ class AlertUpdate(BaseModel):
     enabled: bool = True
 
 
+class ReviewUpdate(BaseModel):
+    action: str
+    reviewer: str = "analyst"
+    notes: str = ""
+    snooze_hours: int = 24
+
+
 @app.post("/tx")
 async def ingest_transaction(tx: Transaction):
     global tx_since_summary
@@ -189,6 +197,7 @@ async def ingest_transaction(tx: Transaction):
                 "risk": decision["risk"],
                 "hops_to_bad": hops,
                 "alert_set": store.get_account_alert(sender),
+                "review": store.get_alert_case(sender),
                 "reasons": decision.get("reasons", []),
                 "aiSummary": ai_summary,
                 "metrics": decision.get("metrics", {}),
@@ -341,6 +350,7 @@ def set_account_alert(account_id: str, body: AlertUpdate):
     return {
         "id": account_id,
         "alert_set": details.get("alert_set", False),
+        "review": details.get("review", {}),
         "risk": details.get("risk", 0.0),
     }
 
@@ -348,6 +358,68 @@ def set_account_alert(account_id: str, body: AlertUpdate):
 @app.post("/account/alert/{account_id}")
 def set_account_alert_alias(account_id: str, body: AlertUpdate):
     return set_account_alert(account_id, body)
+
+
+@app.post("/account/{account_id}/review")
+def update_account_review(account_id: str, body: ReviewUpdate):
+    action = (body.action or "").strip().lower()
+    status_map = {
+        "open": "OPEN",
+        "under_review": "UNDER_REVIEW",
+        "confirm_fraud": "CONFIRMED_FRAUD",
+        "false_positive": "FALSE_POSITIVE",
+        "escalate": "ESCALATED",
+        "snooze": "SNOOZED",
+    }
+    if action not in status_map:
+        return {"ok": False, "error": f"unsupported action: {body.action}"}
+
+    status = status_map[action]
+    snooze_until_ts = None
+    if status == "SNOOZED":
+        hrs = max(1, int(body.snooze_hours or 24))
+        snooze_until_ts = int(time.time()) + hrs * 3600
+
+    store.set_alert_case(
+        account_id,
+        status=status,
+        reviewer=body.reviewer or "analyst",
+        notes=body.notes or "",
+        snooze_until_ts=snooze_until_ts,
+    )
+
+    # Couple review status with alert flag for operational safety.
+    if status in ("OPEN", "UNDER_REVIEW", "CONFIRMED_FRAUD", "ESCALATED", "SNOOZED"):
+        store.set_account_alert(account_id, enabled=True)
+    elif status == "FALSE_POSITIVE":
+        store.set_account_alert(account_id, enabled=False)
+
+    details = store.get_account_details(account_id)
+    return {
+        "ok": True,
+        "id": account_id,
+        "alert_set": details.get("alert_set", False),
+        "review": details.get("review", {}),
+        "review_history": details.get("review_history", []),
+        "risk": details.get("risk", 0.0),
+    }
+
+
+@app.post("/account/review/{account_id}")
+def update_account_review_alias(account_id: str, body: ReviewUpdate):
+    return update_account_review(account_id, body)
+
+
+@app.get("/account/{account_id}/review")
+def get_account_review(account_id: str):
+    details = store.get_account_details(account_id)
+    return {
+        "id": account_id,
+        "alert_set": details.get("alert_set", False),
+        "review": details.get("review", {}),
+        "review_history": details.get("review_history", []),
+        "risk": details.get("risk", 0.0),
+    }
 
 
 @app.get("/dashboard/threat-summary")
