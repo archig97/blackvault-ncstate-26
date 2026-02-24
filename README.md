@@ -46,10 +46,6 @@ flowchart LR
     REV --> VS
 ```
 
-### Architecture PNG
-
-![BlackVault Architecture](docs/images/architecture.png)
-
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) + Docker Compose
